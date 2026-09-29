@@ -11,7 +11,6 @@
  */
 
 const SHEETS = {
-  CLASSES: 'Classes',
   STUDENTS: 'Students',
   CATEGORIES: 'Categories',
   ACTIVITIES: 'Activities',
@@ -20,8 +19,7 @@ const SHEETS = {
 };
 
 const HEADERS = {
-  Classes: ['Class', 'Teacher'],
-  Students: ['Student ID', 'First Name', 'Last Name', 'Class', 'Active'],
+  Students: ['Student ID', 'First Name', 'Last Name', 'Grade', 'Class', 'Active'],
   Categories: ['Category', 'Points Required'],
   Activities: ['Activity', 'Category', 'Points'],
   Points: ['Entry ID', 'Timestamp', 'Student ID', 'Student Name', 'Class',
@@ -63,6 +61,9 @@ const DEFAULT_ACTIVITIES = [
   ['Special Events Helpers', 'Service', 1]
 ];
 
+// Only students in these grades appear in the app and can receive points.
+const ELIGIBLE_GRADES = [7, 8];
+
 const MAX_FAILED_LOGINS = 25;       // across all users
 const LOCKOUT_SECONDS = 600;        // 10 minutes
 
@@ -72,9 +73,9 @@ const LOCKOUT_SECONDS = 600;        // 10 minutes
 
 const API = {
   getConfig: function () { return getConfig(); },
-  getClassData: function (a) { return getClassData(a.className); },
+  getStudents: function () { return getStudents(); },
   addPoints: function (a) { return addPoints(a); },
-  removeEntry: function (a) { return removeEntry(a.entryId, a.className, a.enteredBy); }
+  removeEntry: function (a) { return removeEntry(a.entryId, a.enteredBy); }
 };
 
 function doPost(e) {
@@ -124,7 +125,7 @@ function onOpen() {
     .addItem('Set staff passcode', 'setPasscode')
     .addItem('Refresh Summary tab', 'refreshSummary')
     .addSeparator()
-    .addItem('Set up / repair sheets', 'setup')
+    .addItem('Set up / repair sheets (adds missing columns)', 'setup')
     .addToUi();
 }
 
@@ -149,10 +150,18 @@ function setup() {
   const ss = SpreadsheetApp.getActive();
   Object.keys(HEADERS).forEach(function (name) {
     const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+    const h = HEADERS[name];
     if (sh.getLastRow() === 0) {
-      const h = HEADERS[name];
       sh.getRange(1, 1, 1, h.length).setValues([h]);
       styleHeader_(sh, h.length);
+    } else {
+      // Repair: add any missing columns (e.g. Grade) to the end of the header row.
+      const have = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(str_);
+      const missing = h.filter(function (x) { return have.indexOf(x) === -1; });
+      if (missing.length) {
+        sh.getRange(1, have.length + 1, 1, missing.length).setValues([missing]);
+        styleHeader_(sh, have.length + missing.length);
+      }
     }
   });
 
@@ -162,10 +171,9 @@ function setup() {
 
   seedIfEmpty_(SHEETS.CATEGORIES, DEFAULT_CATEGORIES);
   seedIfEmpty_(SHEETS.ACTIVITIES, DEFAULT_ACTIVITIES);
-  seedIfEmpty_(SHEETS.CLASSES, [['Sample Class', 'Sample Teacher']]);
   seedIfEmpty_(SHEETS.STUDENTS, [
-    ['', 'Alex', 'Example', 'Sample Class', 'Yes'],
-    ['', 'Jordan', 'Sample', 'Sample Class', 'Yes']
+    ['', 'Alex', 'Example', 8, 'Room 21', 'Yes'],
+    ['', 'Jordan', 'Sample', 7, 'Room 18', 'Yes']
   ]);
 
   const blank = ss.getSheetByName('Sheet1');
@@ -194,13 +202,6 @@ function styleHeader_(sh, width) {
 /* ------------------------------------------------------------------ */
 
 function getConfig() {
-  ensureStudentIds_();
-  const students = readTable_(SHEETS.STUDENTS);
-
-  const listed = unique_(readTable_(SHEETS.CLASSES).map(function (r) { return str_(r['Class']); }).filter(Boolean));
-  const extra = unique_(students.map(function (s) { return str_(s['Class']); })
-    .filter(function (c) { return c && listed.indexOf(c) === -1; })).sort();
-
   const categories = readTable_(SHEETS.CATEGORIES).map(function (r) {
     return { name: str_(r['Category']), required: Number(r['Points Required']) || 0 };
   }).filter(function (c) { return c.name; });
@@ -209,27 +210,31 @@ function getConfig() {
     return { name: str_(r['Activity']), category: str_(r['Category']), points: Number(r['Points']) || 1 };
   }).filter(function (a) { return a.name && a.category; });
 
-  return { classes: listed.concat(extra), categories: categories, activities: activities };
+  return { categories: categories, activities: activities, grades: ELIGIBLE_GRADES };
 }
 
-function getClassData(className) {
-  className = str_(className);
-
+/** All active Grade 7-8 students (sorted by last name) and their point entries. */
+function getStudents() {
+  ensureStudentIds_();
   const students = readTable_(SHEETS.STUDENTS)
-    .filter(function (s) {
-      return str_(s['Class']) === className && isActive_(s['Active']) && str_(s['Student ID']);
-    })
+    .filter(function (s) { return isEligible_(s) && str_(s['Student ID']); })
     .map(function (s) {
-      return { id: str_(s['Student ID']), first: str_(s['First Name']), last: str_(s['Last Name']) };
+      return {
+        id: str_(s['Student ID']),
+        first: str_(s['First Name']),
+        last: str_(s['Last Name']),
+        grade: gradeOf_(s['Grade']),
+        cls: str_(s['Class'])
+      };
     })
     .sort(function (a, b) {
-      return (a.last + ' ' + a.first).localeCompare(b.last + ' ' + b.first);
+      return a.last.localeCompare(b.last, 'en', { sensitivity: 'base' }) ||
+             a.first.localeCompare(b.first, 'en', { sensitivity: 'base' });
     });
 
   const ids = {};
   students.forEach(function (s) { ids[s.id] = true; });
 
-  // Entries follow the student (by ID), so points earned in a previous class still count.
   const entries = readTable_(SHEETS.POINTS)
     .filter(function (p) { return ids[str_(p['Student ID'])] && !isRemoved_(p['Status']); })
     .map(function (p) {
@@ -246,7 +251,7 @@ function getClassData(className) {
       };
     });
 
-  return { className: className, students: students, entries: entries };
+  return { students: students, entries: entries };
 }
 
 function addPoints(payload) {
@@ -272,6 +277,8 @@ function addPoints(payload) {
   const rows = ids.map(function (id) {
     const s = studentMap[id];
     if (!s) throw new Error('Student not found: ' + id);
+    if (!isEligible_(s)) throw new Error((str_(s['First Name']) + ' ' + str_(s['Last Name'])).trim() +
+      ' is not an active Grade 7 or 8 student.');
     return {
       'Entry ID': newId_(),
       'Timestamp': now,
@@ -289,10 +296,10 @@ function addPoints(payload) {
 
   withLock_(function () { appendObjects_(SHEETS.POINTS, rows); });
   safeRefreshSummary_();
-  return getClassData(payload.className);
+  return getStudents();
 }
 
-function removeEntry(entryId, className, enteredBy) {
+function removeEntry(entryId, enteredBy) {
   entryId = str_(entryId);
   const who = str_(enteredBy).slice(0, 60) || 'teacher';
   withLock_(function () {
@@ -312,7 +319,7 @@ function removeEntry(entryId, className, enteredBy) {
     throw new Error('That entry was not found. It may already have been removed.');
   });
   safeRefreshSummary_();
-  return getClassData(className);
+  return getStudents();
 }
 
 /* ------------------------------------------------------------------ */
@@ -334,24 +341,24 @@ function refreshSummary() {
     totals[id][c] = (totals[id][c] || 0) + (Number(p['Points']) || 0);
   });
 
-  const header = ['Student ID', 'Student Name', 'Class', 'Active']
+  const header = ['Student ID', 'Last Name', 'First Name', 'Grade', 'Class']
     .concat(cats.map(function (c) { return c.name + ' (' + c.required + ' needed)'; }))
     .concat(['Total Points', 'Grad Letter']);
 
   const rows = readTable_(SHEETS.STUDENTS)
-    .filter(function (s) { return str_(s['Student ID']); })
+    .filter(function (s) { return str_(s['Student ID']) && isEligible_(s); })
     .map(function (s) {
       const id = str_(s['Student ID']);
       const t = totals[id] || {};
       const vals = cats.map(function (c) { return t[c.name] || 0; });
       const total = vals.reduce(function (a, b) { return a + b; }, 0);
       const earned = cats.length > 0 && cats.every(function (c) { return (t[c.name] || 0) >= c.required; });
-      return [id, (str_(s['First Name']) + ' ' + str_(s['Last Name'])).trim(), str_(s['Class']),
-              isActive_(s['Active']) ? 'Yes' : 'No']
+      return [id, str_(s['Last Name']), str_(s['First Name']), gradeOf_(s['Grade']), str_(s['Class'])]
         .concat(vals).concat([total, earned ? 'EARNED' : 'In progress']);
     })
     .sort(function (a, b) {
-      return String(a[2]).localeCompare(String(b[2])) || String(a[1]).localeCompare(String(b[1]));
+      return String(a[1]).localeCompare(String(b[1]), 'en', { sensitivity: 'base' }) ||
+             String(a[2]).localeCompare(String(b[2]), 'en', { sensitivity: 'base' });
     });
 
   const sh = ss.getSheetByName(SHEETS.SUMMARY) || ss.insertSheet(SHEETS.SUMMARY);
@@ -439,6 +446,14 @@ function newId_() { return Utilities.getUuid().split('-')[0].toUpperCase(); }
 function str_(v) { return String(v == null ? '' : v).trim(); }
 function unique_(arr) { return arr.filter(function (v, i) { return arr.indexOf(v) === i; }); }
 function isRemoved_(v) { return str_(v).toLowerCase().indexOf('removed') === 0; }
+/** Reads a grade like 8, "8", "Gr 8" or "Grade 8" as a number (blank/unknown = 0). */
+function gradeOf_(v) {
+  const m = str_(v).match(/\d+/);
+  return m ? Number(m[0]) : 0;
+}
+function isEligible_(s) {
+  return isActive_(s['Active']) && ELIGIBLE_GRADES.indexOf(gradeOf_(s['Grade'])) !== -1;
+}
 function isActive_(v) {
   const a = str_(v).toLowerCase();
   return !(a === 'no' || a === 'n' || a === 'false' || a === 'inactive');

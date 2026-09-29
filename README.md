@@ -27,14 +27,15 @@ A web app for teachers to award and track student Grad Letter points. Students m
 
 | Tab | What goes there |
 |---|---|
-| **Classes** | One row per class. This is the dropdown teachers see. |
-| **Students** | `First Name`, `Last Name`, `Class`. Leave **Student ID** blank; the app fills it in (S0001…). Set **Active** to `No` for students who leave. |
+| **Students** | `First Name`, `Last Name`, **`Grade`**, `Class` (e.g. Room 21). Only students with Grade **7** or **8** appear in the app. You can paste the whole school; other grades are simply ignored. Leave **Student ID** blank; the app fills it in (S0001…). Set **Active** to `No` for students who leave. |
 | **Categories** | The four categories and their targets. Edit here if targets change. |
 | **Activities** | Optional suggestions that pop up as teachers type. Teachers can type any activity. |
 | **Points** | Every award: date, student, category, activity, points, note, who entered it. Don't edit by hand. |
-| **Summary** | Auto-built totals for every student with **EARNED / In progress**. |
+| **Summary** | Auto-built totals for every Grade 7–8 student, sorted by last name, with **EARNED / In progress**. |
 
-   Delete the sample class and two sample students when you add real ones.
+   Delete the two sample students when you add real ones.
+
+   > **Already set up an earlier version?** Paste in the new `Code.gs`, then choose **Grad Points > Set up / repair sheets**. This adds the **Grade** column to your Students tab without touching your data. Fill in each student's grade, then redeploy (see "Making changes later"). The old **Classes** tab is no longer used and can be deleted.
 
 ## Part 2: Publish the data service
 
@@ -67,8 +68,9 @@ A web app for teachers to award and track student Grad Letter points. Students m
 ## Using the app
 
 - Sign in with your name and the staff passcode. Tick "Keep me signed in" on your own device only.
-- Pick a class. Each student shows progress bars for all four categories and a **★ Letter earned** badge once every target is met.
-- Tick one or more students (or **Select all**), pick the category, **type the activity**, set the points (default 1), add a note, and press **Award**.
+- All Grade 7–8 students are listed alphabetically by last name, with their class and grade under each name. Each student shows progress bars for all four categories and a **★ Letter earned** badge once every target is met.
+- To award a club or team: search for each student and tick them. Search matches first name, last name or class, so `Maya 21` finds Maya in Room 21. Ticks stay while you search, so you can build the whole team up one student at a time. The **Class** and **Grade** filters and **Select all shown** help with whole groups.
+- Pick the category, **type the activity**, set the points (default 1), add a note, and press **Award**. Every ticked student gets the points in one step.
 - Click a student's name to see their full history. **Remove** marks an entry as removed: it stays in the Sheet for the record but no longer counts.
 
 ## Making changes later
@@ -80,6 +82,7 @@ A web app for teachers to award and track student Grad Letter points. Students m
 
 ## Notes
 
-- Points follow the student's ID, so if a student changes classes their points come with them.
+- Points follow the student's ID, so if a student changes classes or moves from Grade 7 to 8 their points come with them. Just update the Grade/Class cells.
+- Grades can be entered as `7`, `Gr 7` or `Grade 7`. To change which grades are eligible, edit `ELIGIBLE_GRADES` at the top of `Code.gs`.
 - After 25 wrong passcode attempts, the service locks for 10 minutes.
 - The Apps Script URL in `config.js` is visible to anyone who views the site's code. That's expected; the passcode protects the data.

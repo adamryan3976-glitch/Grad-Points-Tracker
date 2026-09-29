@@ -40,8 +40,7 @@
   select,input,textarea{font:inherit;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-height:40px}
   textarea{resize:vertical}
   select:focus,input:focus,textarea:focus{outline:2px solid var(--brand-2);outline-offset:-1px}
-  #classSel{min-width:220px;font-weight:600}
-  #search{min-width:200px}
+  #search{min-width:260px}
   .stats{margin-left:auto;display:flex;gap:10px}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 16px;text-align:center;min-width:92px}
   .stat b{display:block;font-size:20px}
@@ -51,12 +50,16 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px}
 
   .roster-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
-  .row{display:grid;grid-template-columns:24px minmax(130px,1fr) minmax(0,2.6fr) 118px;gap:14px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line)}
+  .row{display:grid;grid-template-columns:24px minmax(150px,1fr) minmax(0,2.6fr) 118px;gap:14px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line)}
   .row:last-child{border-bottom:0}
   .row.sel{background:#eef4fc}
   input[type=checkbox]{width:18px;height:18px;min-height:0;accent-color:var(--brand-2);cursor:pointer;margin:0}
   .name{background:none;border:0;padding:0;text-align:left;color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
   .name:hover{color:var(--brand-2);text-decoration:underline}
+  .who-cell{min-width:0}
+  .sinfo{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+  .letter{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--brand-2);background:#eef4fc;padding:6px 16px}
+  .selcount{margin-left:auto;font-weight:600;color:var(--brand-2)}
   .cats{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:10px}
   .cat{font-size:12px}
   .cat .lbl{display:flex;justify-content:space-between;gap:4px;color:var(--muted);margin-bottom:3px}
@@ -127,7 +130,8 @@
   @media (max-width:640px){
     main{padding:14px}
     header .sub{display:none}
-    .toolbar .field,#classSel,#search{width:100%;min-width:0}
+    .toolbar .field,#search{width:100%;min-width:0}
+    .toolbar .field.half{width:calc(50% - 6px)}
     .row{grid-template-columns:24px 1fr auto;row-gap:8px}
     .row .badge{grid-row:1;grid-column:3}
     .row .cats{grid-row:2;grid-column:1 / -1;grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -153,9 +157,12 @@
 
 <main id="app" hidden>
   <div class="toolbar">
-    <label class="field"><span>Class</span><select id="classSel"></select></label>
-    <label class="field"><span>Find a student</span><input id="search" type="search" placeholder="Type a name"></label>
-    <label class="field"><span>Show</span>
+    <label class="field"><span>Find a student</span><input id="search" type="search" placeholder="Name or class, e.g. Maya or Room 21"></label>
+    <label class="field half"><span>Class</span><select id="clsFilter"><option value="">All classes</option></select></label>
+    <label class="field half"><span>Grade</span>
+      <select id="gradeFilter"><option value="">Grades 7 &amp; 8</option><option value="7">Grade 7</option><option value="8">Grade 8</option></select>
+    </label>
+    <label class="field half"><span>Show</span>
       <select id="filterSel">
         <option value="all">All students</option>
         <option value="prog">Still working</option>
@@ -163,7 +170,7 @@
       </select>
     </label>
     <div class="stats" id="stats" hidden>
-      <div class="stat"><b id="stStudents">0</b><small>Students</small></div>
+      <div class="stat"><b id="stStudents">0</b><small>Gr 7–8 students</small></div>
       <div class="stat"><b id="stDone">0</b><small>Letters earned</small></div>
     </div>
   </div>
@@ -173,7 +180,7 @@
 
     <aside class="card panel" id="panel">
       <h2>Award points</h2>
-      <p class="hint">Tick one or more students, then enter what the points are for.</p>
+      <p class="hint">Tick every student in the club or team (search to find each one; ticks stay as you search), then enter what the points are for.</p>
       <div id="selPills" class="chips-sel"></div>
       <form id="awardForm" autocomplete="off">
         <label class="field"><span>Category</span><select id="catSel"></select></label>
@@ -219,7 +226,7 @@
   const API_URL = ((window.WPS_CONFIG || {}).API_URL || '').trim();
   const AUTH_KEY = 'wps_auth';
 
-  const state = { cfg: null, data: null, cls: '', selected: new Set(), totals: {}, shown: [], acts: [],
+  const state = { cfg: null, data: null, cls: '', grade: '', selected: new Set(), totals: {}, shown: [], acts: [],
                   filter: 'all', q: '', openId: null, passcode: '', name: '' };
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -346,12 +353,10 @@
       $('#whoName').textContent = state.name;
       $('#reqLine').textContent = 'Meet every target to earn the Grad Letter: ' +
         cfg.categories.map(c => c.name + ' ' + c.required).join(' · ');
-      $('#classSel').innerHTML = '<option value="">Choose a class…</option>' +
-        cfg.classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
       fillCategories();
-      const last = recall('wps_class');
-      if (last && cfg.classes.includes(last)) { $('#classSel').value = last; await loadClass(last); }
-      else { state.data = null; render(); }
+      state.data = await call('getStudents');
+      fillClassFilter();
+      render();
       return true;
     } catch (e) {
       if (e.code === 'AUTH') { clearAuth(); showLogin(errMsg(e)); }
@@ -361,30 +366,39 @@
     } finally { busy(false); }
   }
 
-  async function loadClass(name) {
-    state.cls = name; state.selected.clear(); store('wps_class', name);
-    if (!name) { state.data = null; render(); return; }
-    busy(true);
-    try { state.data = await call('getClassData', { className: name }); render(); }
-    catch (e) { toast(errMsg(e), 'err'); }
-    finally { busy(false); }
+  function fillClassFilter() {
+    const classes = [...new Set(state.data.students.map(s => s.cls).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+    if (state.cls && !classes.includes(state.cls)) state.cls = '';
+    $('#clsFilter').innerHTML = '<option value="">All classes</option>' +
+      classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    $('#clsFilter').value = state.cls;
+  }
+
+  function setData(d) {
+    state.data = d;
+    const ids = new Set(d.students.map(s => s.id));
+    state.selected.forEach(id => { if (!ids.has(id)) state.selected.delete(id); });
+    fillClassFilter();
   }
 
   /* ---------- Roster ---------- */
   function render() {
     const roster = $('#roster');
-    if (!state.data) {
-      roster.innerHTML = '<div class="empty">Choose a class to see its students.</div>';
-      $('#stats').hidden = true; renderPanel(); return;
-    }
+    if (!state.data) { roster.innerHTML = ''; $('#stats').hidden = true; renderPanel(); return; }
     const tot = {};
     state.data.students.forEach(s => { tot[s.id] = {}; });
     state.data.entries.forEach(e => { const t = tot[e.studentId]; if (t) t[e.category] = (t[e.category] || 0) + e.points; });
     state.totals = tot;
 
-    const q = state.q.toLowerCase();
+    const words = state.q.toLowerCase().split(/\s+/).filter(Boolean);
     const shown = state.data.students.filter(s => {
-      if (q && !(s.first + ' ' + s.last).toLowerCase().includes(q)) return false;
+      if (state.cls && s.cls !== state.cls) return false;
+      if (state.grade && String(s.grade) !== state.grade) return false;
+      if (words.length) {
+        const hay = [s.first, s.last, s.cls, 'gr' + s.grade, 'grade ' + s.grade].join(' ').toLowerCase();
+        if (!words.every(w => hay.includes(w))) return false;
+      }
       const done = earned(tot[s.id]);
       if (state.filter === 'done' && !done) return false;
       if (state.filter === 'prog' && done) return false;
@@ -397,15 +411,21 @@
     $('#stDone').textContent = state.data.students.filter(s => earned(tot[s.id])).length;
 
     if (!state.data.students.length) {
-      roster.innerHTML = '<div class="empty">No students are listed for this class yet. Add them on the <b>Students</b> tab of the Google Sheet.</div>';
+      roster.innerHTML = '<div class="empty">No Grade 7 or 8 students found. On the <b>Students</b> tab of the Google Sheet, make sure each student has <b>7</b> or <b>8</b> in the <b>Grade</b> column.</div>';
     } else if (!shown.length) {
       roster.innerHTML = '<div class="empty">No students match.</div>';
     } else {
       const allSel = shown.every(s => state.selected.has(s.id));
-      roster.innerHTML =
-        `<div class="roster-head"><input type="checkbox" id="selAll" ${allSel ? 'checked' : ''} aria-label="Select all">
-          <span>Select all shown (${shown.length})</span></div>` +
-        shown.map(s => rowHtml(s, tot[s.id])).join('');
+      let html = `<div class="roster-head"><input type="checkbox" id="selAll" ${allSel ? 'checked' : ''} aria-label="Select all shown">
+          <span>Select all shown (${shown.length})</span>
+          <span class="selcount" id="selCount"></span></div>`;
+      let letter = '';
+      shown.forEach(s => {
+        const L = (s.last || s.first || '#').charAt(0).toUpperCase();
+        if (L !== letter && shown.length > 15) { letter = L; html += `<div class="letter">${esc(L)}</div>`; }
+        html += rowHtml(s, tot[s.id]);
+      });
+      roster.innerHTML = html;
     }
     renderPanel();
   }
@@ -422,7 +442,8 @@
     }).join('');
     return `<div class="row ${sel ? 'sel' : ''}">
       <input type="checkbox" class="pick" data-id="${esc(s.id)}" ${sel ? 'checked' : ''} aria-label="Select ${esc(s.first)} ${esc(s.last)}">
-      <button type="button" class="name" data-open="${esc(s.id)}">${esc(s.first)} ${esc(s.last)}</button>
+      <div class="who-cell"><button type="button" class="name" data-open="${esc(s.id)}">${esc(s.last)}, ${esc(s.first)}</button>
+        <span class="sinfo">${esc(s.cls || 'No class')} · Gr ${esc(s.grade)}</span></div>
       <div class="cats" style="--n:${state.cfg.categories.length}">${cats}</div>
       <span class="badge ${done ? 'done' : 'prog'}">${done ? '★ Letter earned' : 'In progress'}</span>
     </div>`;
@@ -434,12 +455,13 @@
     const btn = $('#awardBtn');
     btn.disabled = !n || !state.data;
     btn.textContent = n ? `Award to ${n} student${n > 1 ? 's' : ''}` : 'Select students to award';
+    const sc = $('#selCount'); if (sc) sc.textContent = n ? `${n} selected` : '';
     const pills = $('#selPills');
     if (!n || !state.data) { pills.innerHTML = '<span class="muted">No students selected.</span>'; return; }
     const names = state.data.students.filter(s => state.selected.has(s.id))
-      .map(s => `<span class="pill">${esc(s.first)} ${esc(s.last.charAt(0))}.</span>`);
-    pills.innerHTML = names.slice(0, 12).join('') +
-      (names.length > 12 ? `<span class="pill">+${names.length - 12} more</span>` : '') +
+      .map(s => `<span class="pill">${esc(s.first)} ${esc(s.last)}${s.cls ? ' · ' + esc(s.cls) : ''}</span>`);
+    pills.innerHTML = names.slice(0, 30).join('') +
+      (names.length > 30 ? `<span class="pill">+${names.length - 30} more</span>` : '') +
       ' <button type="button" class="link" id="clearSel">Clear</button>';
   }
 
@@ -471,10 +493,10 @@
     const category = $('#catSel').value;
     busy(true); $('#awardBtn').disabled = true;
     try {
-      state.data = await call('addPoints', {
-        className: state.cls, studentIds: ids, category, activity, points,
+      setData(await call('addPoints', {
+        studentIds: ids, category, activity, points,
         note: $('#note').value.trim(), enteredBy: state.name
-      });
+      }));
       state.selected.clear();
       $('#note').value = ''; $('#actInput').value = ''; $('#pts').value = 1;
       render();
@@ -516,7 +538,7 @@
 
     $('#modalBody').innerHTML = `
       <div class="m-head">
-        <div><h2>${esc(s.first)} ${esc(s.last)}</h2><div class="muted">${esc(state.cls)} · ID ${esc(s.id)}</div></div>
+        <div><h2>${esc(s.first)} ${esc(s.last)}</h2><div class="muted">${esc(s.cls || 'No class')} · Grade ${esc(s.grade)} · ID ${esc(s.id)}</div></div>
         <span class="badge ${done ? 'done' : 'prog'}">${done ? '★ Letter earned' : 'In progress'}</span>
       </div>
       <div class="bigcats">${cats}</div>
@@ -530,7 +552,7 @@
     if (!confirm('Remove this entry? It stays in the Google Sheet, marked "Removed", and no longer counts.')) return;
     busy(true);
     try {
-      state.data = await call('removeEntry', { entryId, className: state.cls, enteredBy: state.name });
+      setData(await call('removeEntry', { entryId, enteredBy: state.name }));
       render();
       if (state.openId) openStudent(state.openId);
       toast('Entry removed.', 'ok');
@@ -542,7 +564,8 @@
   function wireEvents() {
     $('#loginForm').addEventListener('submit', onLogin);
     $('#signOut').addEventListener('click', () => signOut());
-    $('#classSel').addEventListener('change', e => loadClass(e.target.value));
+    $('#clsFilter').addEventListener('change', e => { state.cls = e.target.value; if (state.data) render(); });
+    $('#gradeFilter').addEventListener('change', e => { state.grade = e.target.value; if (state.data) render(); });
     $('#search').addEventListener('input', e => { state.q = e.target.value.trim(); if (state.data) render(); });
     $('#filterSel').addEventListener('change', e => { state.filter = e.target.value; if (state.data) render(); });
     $('#catSel').addEventListener('change', fillActivities);
