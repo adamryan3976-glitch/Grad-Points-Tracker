@@ -5,7 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>WPS Grad Point Tracker</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f4b400'/%3E%3Ctext x='32' y='45' font-family='Arial' font-weight='800' font-size='36' text-anchor='middle' fill='%231d3557'%3EW%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1d3557">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Grad Points">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -26,7 +34,9 @@
 
   header.top{background:var(--brand);color:#fff}
   header.top .in{max-width:1240px;margin:0 auto;padding:18px 20px;display:flex;align-items:center;gap:14px}
-  .logo{width:44px;height:44px;border-radius:11px;background:var(--accent);color:var(--brand);display:grid;place-items:center;font-weight:800;font-size:21px;flex:none}
+  .logo{width:76px;height:76px;object-fit:contain;flex:none;display:block}
+  header .logo{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.85)) drop-shadow(0 0 6px rgba(255,255,255,.25))}
+  header.top .in{padding-top:max(12px,env(safe-area-inset-top));padding-bottom:12px}
   header h1{margin:0;font-size:20px;font-weight:700}
   header .sub{margin:3px 0 0;font-size:13px;opacity:.85}
   .who{margin-left:auto;text-align:right;font-size:13px;white-space:nowrap}
@@ -110,10 +120,11 @@
 
   .login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:150}
   .login-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;width:100%;max-width:380px;box-shadow:0 10px 30px rgba(20,28,40,.08)}
-  .login-card .logo{margin-bottom:14px}
+  .login-card .logo{width:180px;height:180px;margin:0 auto 10px}
+  .login-card h2,.login-card #loginIntro{text-align:center}
   .login-card h2{margin:0 0 4px;font-size:20px}
   .login-card .field{margin:14px 0 0}
-  .login-card input{width:100%}
+  .login-card input:not([type=checkbox]){width:100%}
   .check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin:14px 0 4px;cursor:pointer}
   .login-err{color:var(--danger);font-size:13px;min-height:18px;margin:6px 0 10px}
 
@@ -130,6 +141,7 @@
   @media (max-width:640px){
     main{padding:14px}
     header .sub{display:none}
+    header .logo{width:58px;height:58px}
     .toolbar .field,#search{width:100%;min-width:0}
     .toolbar .field.half{width:calc(50% - 6px)}
     .row{grid-template-columns:24px 1fr auto;row-gap:8px}
@@ -143,7 +155,7 @@
 
 <header class="top">
   <div class="in">
-    <div class="logo">W</div>
+    <img class="logo" src="icons/logo.png" alt="Winchester P.S. Grad Points Tracker logo">
     <div>
       <h1>WPS Grad Point Tracker</h1>
       <p class="sub" id="reqLine"></p>
@@ -199,7 +211,7 @@
 
 <div class="login" id="login" hidden>
   <form class="login-card" id="loginForm" autocomplete="on">
-    <div class="logo">W</div>
+    <img class="logo" src="icons/logo.png" alt="Winchester P.S. Grad Points Tracker logo">
     <h2>WPS Grad Point Tracker</h2>
     <p class="muted" id="loginIntro">Staff sign in</p>
     <label class="field"><span>Your name</span>
@@ -330,7 +342,7 @@
     wireEvents();
     if (!API_URL || API_URL.indexOf('PASTE_') === 0) {
       $('#login').hidden = false;
-      $('#loginForm').innerHTML = '<div class="logo">W</div><h2>Almost ready</h2>' +
+      $('#loginForm').innerHTML = '<img class="logo" src="icons/logo.png" alt=""><h2>Almost ready</h2>' +
         '<p class="muted">Add the Apps Script Web app URL to <b>config.js</b> in the GitHub repo, then reload this page. See README.md for the steps.</p>';
       return;
     }

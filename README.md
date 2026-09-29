@@ -52,6 +52,9 @@ A web app for teachers to award and track student Grad Letter points. Students m
    ```
    index.html
    config.js
+   manifest.webmanifest      ← home-screen app settings
+   favicon.ico
+   icons/                    ← logo, Chrome tab icon, iPhone/Android home-screen icons
    apps-script/Code.gs
    README.md
    ```
@@ -86,3 +89,16 @@ A web app for teachers to award and track student Grad Letter points. Students m
 - Grades can be entered as `7`, `Gr 7` or `Grade 7`. To change which grades are eligible, edit `ELIGIBLE_GRADES` at the top of `Code.gs`.
 - After 25 wrong passcode attempts, the service locks for 10 minutes.
 - The Apps Script URL in `config.js` is visible to anyone who views the site's code. That's expected; the passcode protects the data.
+
+## Logo and app icons
+
+The `icons/` folder was generated from the Winchester P.S. Grad Points Tracker logo:
+
+| File | Used for |
+|---|---|
+| `icons/logo.png` | Logo in the app header and on the sign-in screen |
+| `favicon.ico`, `icons/favicon-32.png` | Chrome tab icon (knight's helmet and cap, so it's readable at tiny sizes) |
+| `icons/apple-touch-icon.png` | iPhone/iPad home-screen icon (Safari > Share > Add to Home Screen) |
+| `icons/icon-192.png`, `icons/icon-512.png`, `icons/icon-maskable-512.png` | Android home-screen icon (Chrome > ⋮ > Add to Home screen / Install app) |
+
+Once it's added to a home screen, the app opens full-screen like a regular app, labelled **Grad Points**. Phones cache icons, so if the icon changes later, remove the shortcut and add it again.
