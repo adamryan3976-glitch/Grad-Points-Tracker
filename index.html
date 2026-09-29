@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>WPS Grad Point Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f4b400'/%3E%3Ctext x='32' y='45' font-family='Arial' font-weight='800' font-size='36' text-anchor='middle' fill='%231d3557'%3EW%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3f5f9; --card:#fff; --ink:#18202e; --muted:#5d6879; --line:#dfe4ec;
+    --brand:#1d3557; --brand-2:#2a5288; --accent:#f4b400;
+    --ok:#17804f; --ok-bg:#e3f4ea; --danger:#b3261e;
+    --cat0:#7b3fb0; --cat1:#1f63d6; --cat2:#d9661a; --cat3:#0e8a78;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0}
+  body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.4}
+  .muted{color:var(--muted);font-size:13px}
+
+  .busy{position:fixed;top:0;left:0;height:3px;width:0;background:var(--accent);z-index:200;transition:width .3s}
+  .busy.on{width:85%;transition:width 6s ease-out}
+
+  header.top{background:var(--brand);color:#fff}
+  header.top .in{max-width:1240px;margin:0 auto;padding:18px 20px;display:flex;align-items:center;gap:14px}
+  .logo{width:44px;height:44px;border-radius:11px;background:var(--accent);color:var(--brand);display:grid;place-items:center;font-weight:800;font-size:21px;flex:none}
+  header h1{margin:0;font-size:20px;font-weight:700}
+  header .sub{margin:3px 0 0;font-size:13px;opacity:.85}
+  .who{margin-left:auto;text-align:right;font-size:13px;white-space:nowrap}
+  .who button{background:none;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:7px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer;margin-top:4px}
+  .who button:hover{background:rgba(255,255,255,.12)}
+
+  main{max-width:1240px;margin:0 auto;padding:20px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:16px}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field>span{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+  select,input,textarea{font:inherit;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-height:40px}
+  textarea{resize:vertical}
+  select:focus,input:focus,textarea:focus{outline:2px solid var(--brand-2);outline-offset:-1px}
+  #classSel{min-width:220px;font-weight:600}
+  #search{min-width:200px}
+  .stats{margin-left:auto;display:flex;gap:10px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 16px;text-align:center;min-width:92px}
+  .stat b{display:block;font-size:20px}
+  .stat small{color:var(--muted);font-size:12px}
+
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px}
+
+  .roster-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+  .row{display:grid;grid-template-columns:24px minmax(130px,1fr) minmax(0,2.6fr) 118px;gap:14px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row.sel{background:#eef4fc}
+  input[type=checkbox]{width:18px;height:18px;min-height:0;accent-color:var(--brand-2);cursor:pointer;margin:0}
+  .name{background:none;border:0;padding:0;text-align:left;color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+  .name:hover{color:var(--brand-2);text-decoration:underline}
+  .cats{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:10px}
+  .cat{font-size:12px}
+  .cat .lbl{display:flex;justify-content:space-between;gap:4px;color:var(--muted);margin-bottom:3px}
+  .cat .lbl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cat .lbl b{color:var(--ink)}
+  .cat.met .lbl b{color:var(--c)}
+  .bar{height:7px;border-radius:99px;background:#e9edf3;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--c);border-radius:99px}
+  .badge{font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;text-align:center;white-space:nowrap}
+  .badge.done{background:var(--ok-bg);color:var(--ok)}
+  .badge.prog{background:#eef1f5;color:var(--muted)}
+  .empty{padding:48px 20px;text-align:center;color:var(--muted)}
+  .empty.err{color:var(--danger)}
+
+  .panel{position:sticky;top:16px;padding:18px}
+  .panel h2{margin:0 0 4px;font-size:17px}
+  .panel .hint{font-size:13px;color:var(--muted);margin:0 0 12px}
+  .panel .field{margin-bottom:12px}
+  .panel select,.panel input,.panel textarea{width:100%}
+  .chips-sel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px;min-height:24px}
+  .pill{background:#eef4fc;color:var(--brand-2);font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px}
+  .btn{font:inherit;font-weight:600;border:0;border-radius:9px;padding:11px 16px;cursor:pointer;width:100%}
+  .btn.primary{background:var(--brand);color:#fff}
+  .btn.primary:hover:not(:disabled){background:var(--brand-2)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .link{background:none;border:0;padding:0;font:inherit;font-size:13px;color:var(--brand-2);cursor:pointer;text-decoration:underline}
+  .link.danger{color:var(--danger)}
+
+  .overlay{position:fixed;inset:0;background:rgba(20,28,40,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:50}
+  .overlay.open{display:flex}
+  .modal{position:relative;background:#fff;border-radius:14px;width:100%;max-width:720px;padding:24px}
+  .x{position:absolute;top:10px;right:12px;background:none;border:0;font-size:26px;line-height:1;color:var(--muted);cursor:pointer}
+  .m-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px;padding-right:28px}
+  .m-head h2{margin:0;font-size:20px}
+  .bigcats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+  .bigcat{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .bigcat .top{display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:6px}
+  .bigcat .top b{color:var(--c)}
+  .bigcat small{display:block;margin-top:6px;font-size:12px;color:var(--muted)}
+  .m-actions{margin-bottom:18px}
+  .m-actions .btn{width:auto}
+  .modal h3{font-size:15px;margin:0 0 4px}
+  .entry{display:grid;grid-template-columns:1fr auto;gap:12px;padding:11px 0;border-top:1px solid var(--line);align-items:start}
+  .tag{display:inline-block;font-size:11px;font-weight:700;color:var(--c);border:1px solid var(--c);border-radius:99px;padding:1px 8px;margin-right:4px;vertical-align:1px}
+  .pts{font-weight:700;color:var(--ok);margin-left:4px}
+  .note{font-size:13px;margin-top:3px}
+  .meta{font-size:12px;color:var(--muted);margin-top:3px}
+
+  .login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:150}
+  .login-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;width:100%;max-width:380px;box-shadow:0 10px 30px rgba(20,28,40,.08)}
+  .login-card .logo{margin-bottom:14px}
+  .login-card h2{margin:0 0 4px;font-size:20px}
+  .login-card .field{margin:14px 0 0}
+  .login-card input{width:100%}
+  .check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin:14px 0 4px;cursor:pointer}
+  .login-err{color:var(--danger);font-size:13px;min-height:18px;margin:6px 0 10px}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:220;max-width:90vw}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast.ok{background:var(--ok)}
+  .toast.err{background:var(--danger)}
+
+  @media (max-width:920px){
+    .layout{grid-template-columns:1fr}
+    .panel{position:static}
+    .stats{margin-left:0}
+  }
+  @media (max-width:640px){
+    main{padding:14px}
+    header .sub{display:none}
+    .toolbar .field,#classSel,#search{width:100%;min-width:0}
+    .row{grid-template-columns:24px 1fr auto;row-gap:8px}
+    .row .badge{grid-row:1;grid-column:3}
+    .row .cats{grid-row:2;grid-column:1 / -1;grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+</style>
+</head>
+<body>
+<div id="busy" class="busy"></div>
+
+<header class="top">
+  <div class="in">
+    <div class="logo">W</div>
+    <div>
+      <h1>WPS Grad Point Tracker</h1>
+      <p class="sub" id="reqLine"></p>
+    </div>
+    <div class="who" id="who" hidden>
+      <div id="whoName"></div>
+      <button type="button" id="signOut">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<main id="app" hidden>
+  <div class="toolbar">
+    <label class="field"><span>Class</span><select id="classSel"></select></label>
+    <label class="field"><span>Find a student</span><input id="search" type="search" placeholder="Type a name"></label>
+    <label class="field"><span>Show</span>
+      <select id="filterSel">
+        <option value="all">All students</option>
+        <option value="prog">Still working</option>
+        <option value="done">Letter earned</option>
+      </select>
+    </label>
+    <div class="stats" id="stats" hidden>
+      <div class="stat"><b id="stStudents">0</b><small>Students</small></div>
+      <div class="stat"><b id="stDone">0</b><small>Letters earned</small></div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <section class="card"><div id="roster"></div></section>
+
+    <aside class="card panel" id="panel">
+      <h2>Award points</h2>
+      <p class="hint">Tick one or more students, then enter what the points are for.</p>
+      <div id="selPills" class="chips-sel"></div>
+      <form id="awardForm" autocomplete="off">
+        <label class="field"><span>Category</span><select id="catSel"></select></label>
+        <label class="field"><span>Activity</span>
+          <input id="actInput" list="actList" maxlength="80" placeholder="Type the activity, e.g. Cross-country team">
+          <datalist id="actList"></datalist></label>
+        <label class="field"><span>Points</span>
+          <input id="pts" type="number" min="0.5" max="20" step="0.5" value="1"></label>
+        <label class="field"><span>What is this for? (note)</span>
+          <textarea id="note" rows="3" maxlength="300" placeholder="e.g. Junior volleyball team, fall season"></textarea></label>
+        <button class="btn primary" id="awardBtn" type="submit" disabled>Select students to award</button>
+      </form>
+    </aside>
+  </div>
+</main>
+
+<div class="login" id="login" hidden>
+  <form class="login-card" id="loginForm" autocomplete="on">
+    <div class="logo">W</div>
+    <h2>WPS Grad Point Tracker</h2>
+    <p class="muted" id="loginIntro">Staff sign in</p>
+    <label class="field"><span>Your name</span>
+      <input id="liName" name="name" required maxlength="60" placeholder="e.g. Ms. Patel" autocomplete="name"></label>
+    <label class="field"><span>Staff passcode</span>
+      <input id="liCode" name="password" type="password" required autocomplete="current-password"></label>
+    <label class="check"><input type="checkbox" id="liRemember"> Keep me signed in on this device</label>
+    <p class="login-err" id="liErr" role="alert"></p>
+    <button class="btn primary" id="liBtn" type="submit">Sign in</button>
+  </form>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <button class="x" id="closeModal" aria-label="Close">×</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script>
+  const API_URL = ((window.WPS_CONFIG || {}).API_URL || '').trim();
+  const AUTH_KEY = 'wps_auth';
+
+  const state = { cfg: null, data: null, cls: '', selected: new Set(), totals: {}, shown: [], acts: [],
+                  filter: 'all', q: '', openId: null, passcode: '', name: '' };
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = v => (Math.round(v * 10) / 10).toString();
+  const catColor = i => 'var(--cat' + ((i < 0 ? 0 : i) % 4) + ')';
+
+  /* ---------- Talking to the Google Sheet ---------- */
+  async function call(action, args) {
+    let res;
+    try {
+      // text/plain keeps this a "simple" request, which Apps Script accepts from other sites.
+      res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, args: args || {}, passcode: state.passcode })
+      });
+    } catch (e) {
+      throw new Error("Couldn't reach the Google Sheet. Check your internet connection and try again.");
+    }
+    let body;
+    try { body = await res.json(); }
+    catch (e) { throw new Error('The Google Sheet sent back an unexpected reply. Check the Web app deployment (Who has access: Anyone).'); }
+    if (!body.ok) {
+      const err = new Error(body.error || 'Something went wrong.');
+      err.code = body.code;
+      if (err.code === 'AUTH' && state.cfg) { signOut(err.message); }
+      throw err;
+    }
+    return body.data;
+  }
+
+  /* ---------- Small helpers ---------- */
+  function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function recall(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function saveAuth(remember) {
+    const val = JSON.stringify({ passcode: state.passcode, name: state.name });
+    try {
+      if (remember) { localStorage.setItem(AUTH_KEY, val); sessionStorage.removeItem(AUTH_KEY); }
+      else { sessionStorage.setItem(AUTH_KEY, val); localStorage.removeItem(AUTH_KEY); }
+    } catch (e) {}
+  }
+  function loadAuth() {
+    try {
+      const raw = sessionStorage.getItem(AUTH_KEY) || localStorage.getItem(AUTH_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function clearAuth() {
+    try { sessionStorage.removeItem(AUTH_KEY); localStorage.removeItem(AUTH_KEY); } catch (e) {}
+  }
+  function errMsg(e) { return (e && e.message) ? e.message : String(e); }
+
+  let busyCount = 0;
+  function busy(on) { busyCount = Math.max(0, busyCount + (on ? 1 : -1)); $('#busy').classList.toggle('on', busyCount > 0); }
+  function toast(msg, kind) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (kind || '');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => { t.className = 'toast'; }, 3800);
+  }
+  function fmtDate(ts) {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+  function earned(t) {
+    const cats = state.cfg.categories;
+    return cats.length > 0 && cats.every(c => ((t || {})[c.name] || 0) >= c.required);
+  }
+
+  /* ---------- Sign in / out ---------- */
+  function showLogin(message) {
+    $('#app').hidden = true; $('#who').hidden = true;
+    $('#login').hidden = false;
+    $('#liErr').textContent = message || '';
+    $('#liName').value = state.name || recall('wps_name') || '';
+    $('#liCode').value = '';
+    ($('#liName').value ? $('#liCode') : $('#liName')).focus();
+  }
+
+  async function onLogin(ev) {
+    ev.preventDefault();
+    state.name = $('#liName').value.trim();
+    state.passcode = $('#liCode').value.trim();
+    if (!state.name || !state.passcode) return;
+    $('#liBtn').disabled = true; $('#liErr').textContent = '';
+    const ok = await start();
+    $('#liBtn').disabled = false;
+    if (ok) { saveAuth($('#liRemember').checked); store('wps_name', state.name); }
+  }
+
+  function signOut(message) {
+    clearAuth();
+    state.passcode = ''; state.cfg = null; state.data = null; state.selected.clear();
+    closeModal();
+    showLogin(message);
+  }
+
+  /* ---------- Startup ---------- */
+  async function init() {
+    wireEvents();
+    if (!API_URL || API_URL.indexOf('PASTE_') === 0) {
+      $('#login').hidden = false;
+      $('#loginForm').innerHTML = '<div class="logo">W</div><h2>Almost ready</h2>' +
+        '<p class="muted">Add the Apps Script Web app URL to <b>config.js</b> in the GitHub repo, then reload this page. See README.md for the steps.</p>';
+      return;
+    }
+    const saved = loadAuth();
+    if (saved && saved.passcode) {
+      state.passcode = saved.passcode; state.name = saved.name || '';
+      if (!(await start())) return;
+    } else {
+      showLogin();
+    }
+  }
+
+  // Loads settings from the Sheet. Returns true when signed in successfully.
+  async function start() {
+    busy(true);
+    try {
+      const cfg = await call('getConfig');
+      state.cfg = cfg;
+      $('#login').hidden = true; $('#app').hidden = false; $('#who').hidden = false;
+      $('#whoName').textContent = state.name;
+      $('#reqLine').textContent = 'Meet every target to earn the Grad Letter: ' +
+        cfg.categories.map(c => c.name + ' ' + c.required).join(' · ');
+      $('#classSel').innerHTML = '<option value="">Choose a class…</option>' +
+        cfg.classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      fillCategories();
+      const last = recall('wps_class');
+      if (last && cfg.classes.includes(last)) { $('#classSel').value = last; await loadClass(last); }
+      else { state.data = null; render(); }
+      return true;
+    } catch (e) {
+      if (e.code === 'AUTH') { clearAuth(); showLogin(errMsg(e)); }
+      else if (!$('#login').hidden) { $('#liErr').textContent = errMsg(e); }
+      else { showLogin(errMsg(e)); }
+      return false;
+    } finally { busy(false); }
+  }
+
+  async function loadClass(name) {
+    state.cls = name; state.selected.clear(); store('wps_class', name);
+    if (!name) { state.data = null; render(); return; }
+    busy(true);
+    try { state.data = await call('getClassData', { className: name }); render(); }
+    catch (e) { toast(errMsg(e), 'err'); }
+    finally { busy(false); }
+  }
+
+  /* ---------- Roster ---------- */
+  function render() {
+    const roster = $('#roster');
+    if (!state.data) {
+      roster.innerHTML = '<div class="empty">Choose a class to see its students.</div>';
+      $('#stats').hidden = true; renderPanel(); return;
+    }
+    const tot = {};
+    state.data.students.forEach(s => { tot[s.id] = {}; });
+    state.data.entries.forEach(e => { const t = tot[e.studentId]; if (t) t[e.category] = (t[e.category] || 0) + e.points; });
+    state.totals = tot;
+
+    const q = state.q.toLowerCase();
+    const shown = state.data.students.filter(s => {
+      if (q && !(s.first + ' ' + s.last).toLowerCase().includes(q)) return false;
+      const done = earned(tot[s.id]);
+      if (state.filter === 'done' && !done) return false;
+      if (state.filter === 'prog' && done) return false;
+      return true;
+    });
+    state.shown = shown.map(s => s.id);
+
+    $('#stats').hidden = false;
+    $('#stStudents').textContent = state.data.students.length;
+    $('#stDone').textContent = state.data.students.filter(s => earned(tot[s.id])).length;
+
+    if (!state.data.students.length) {
+      roster.innerHTML = '<div class="empty">No students are listed for this class yet. Add them on the <b>Students</b> tab of the Google Sheet.</div>';
+    } else if (!shown.length) {
+      roster.innerHTML = '<div class="empty">No students match.</div>';
+    } else {
+      const allSel = shown.every(s => state.selected.has(s.id));
+      roster.innerHTML =
+        `<div class="roster-head"><input type="checkbox" id="selAll" ${allSel ? 'checked' : ''} aria-label="Select all">
+          <span>Select all shown (${shown.length})</span></div>` +
+        shown.map(s => rowHtml(s, tot[s.id])).join('');
+    }
+    renderPanel();
+  }
+
+  function rowHtml(s, t) {
+    const done = earned(t);
+    const sel = state.selected.has(s.id);
+    const cats = state.cfg.categories.map((c, i) => {
+      const v = t[c.name] || 0;
+      const pct = c.required ? Math.min(100, v / c.required * 100) : 100;
+      return `<div class="cat ${v >= c.required ? 'met' : ''}" style="--c:${catColor(i)}">
+        <div class="lbl"><span>${esc(c.name)}</span><b>${fmt(v)}/${c.required}</b></div>
+        <div class="bar"><i style="width:${pct}%"></i></div></div>`;
+    }).join('');
+    return `<div class="row ${sel ? 'sel' : ''}">
+      <input type="checkbox" class="pick" data-id="${esc(s.id)}" ${sel ? 'checked' : ''} aria-label="Select ${esc(s.first)} ${esc(s.last)}">
+      <button type="button" class="name" data-open="${esc(s.id)}">${esc(s.first)} ${esc(s.last)}</button>
+      <div class="cats" style="--n:${state.cfg.categories.length}">${cats}</div>
+      <span class="badge ${done ? 'done' : 'prog'}">${done ? '★ Letter earned' : 'In progress'}</span>
+    </div>`;
+  }
+
+  /* ---------- Award panel ---------- */
+  function renderPanel() {
+    const n = state.selected.size;
+    const btn = $('#awardBtn');
+    btn.disabled = !n || !state.data;
+    btn.textContent = n ? `Award to ${n} student${n > 1 ? 's' : ''}` : 'Select students to award';
+    const pills = $('#selPills');
+    if (!n || !state.data) { pills.innerHTML = '<span class="muted">No students selected.</span>'; return; }
+    const names = state.data.students.filter(s => state.selected.has(s.id))
+      .map(s => `<span class="pill">${esc(s.first)} ${esc(s.last.charAt(0))}.</span>`);
+    pills.innerHTML = names.slice(0, 12).join('') +
+      (names.length > 12 ? `<span class="pill">+${names.length - 12} more</span>` : '') +
+      ' <button type="button" class="link" id="clearSel">Clear</button>';
+  }
+
+  function fillCategories() {
+    $('#catSel').innerHTML = state.cfg.categories
+      .map(c => `<option value="${esc(c.name)}">${esc(c.name)} (${c.required} needed)</option>`).join('');
+    fillActivities();
+  }
+  function fillActivities() {
+    const cat = $('#catSel').value;
+    state.acts = state.cfg.activities.filter(a => a.category === cat);
+    $('#actList').innerHTML = state.acts.map(a => `<option value="${esc(a.name)}"></option>`).join('');
+  }
+  function onActivity() {
+    // If the typed activity matches a listed one with a custom point value, use that value.
+    const typed = $('#actInput').value.trim().toLowerCase();
+    const match = state.acts.find(a => a.name.toLowerCase() === typed);
+    if (match) $('#pts').value = match.points;
+  }
+
+  async function award(ev) {
+    ev.preventDefault();
+    const ids = [...state.selected];
+    if (!ids.length) return;
+    const activity = $('#actInput').value.trim();
+    if (!activity) { toast('Type the activity the points are for.', 'err'); $('#actInput').focus(); return; }
+    const points = parseFloat($('#pts').value);
+    if (!(points > 0 && points <= 20)) { toast('Points must be more than 0 and no more than 20.', 'err'); return; }
+    const category = $('#catSel').value;
+    busy(true); $('#awardBtn').disabled = true;
+    try {
+      state.data = await call('addPoints', {
+        className: state.cls, studentIds: ids, category, activity, points,
+        note: $('#note').value.trim(), enteredBy: state.name
+      });
+      state.selected.clear();
+      $('#note').value = ''; $('#actInput').value = ''; $('#pts').value = 1;
+      render();
+      toast(`Saved ${fmt(points)} ${category} point${points === 1 ? '' : 's'} for ${ids.length} student${ids.length > 1 ? 's' : ''}.`, 'ok');
+    } catch (e) {
+      if (e.code !== 'AUTH') toast(errMsg(e), 'err');
+    } finally { busy(false); if (state.cfg) renderPanel(); }
+  }
+
+  /* ---------- Student detail ---------- */
+  function openStudent(id) {
+    const s = state.data.students.find(x => x.id === id);
+    if (!s) return;
+    state.openId = id;
+    const t = state.totals[id] || {};
+    const done = earned(t);
+    const entries = state.data.entries.filter(e => e.studentId === id).sort((a, b) => b.ts - a.ts);
+
+    const cats = state.cfg.categories.map((c, i) => {
+      const v = t[c.name] || 0;
+      const left = Math.max(0, c.required - v);
+      const pct = c.required ? Math.min(100, v / c.required * 100) : 100;
+      return `<div class="bigcat" style="--c:${catColor(i)}">
+        <div class="top"><span>${esc(c.name)}</span><b>${fmt(v)} / ${c.required}</b></div>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <small>${left ? fmt(left) + ' more needed' : '✓ Target met'}</small></div>`;
+    }).join('');
+
+    const list = entries.length ? entries.map(e => {
+      const ci = state.cfg.categories.findIndex(c => c.name === e.category);
+      return `<div class="entry"><div>
+          <span class="tag" style="--c:${catColor(ci)}">${esc(e.category)}</span>
+          <b>${esc(e.activity)}</b><span class="pts">+${fmt(e.points)}</span>
+          ${e.note ? `<div class="note">${esc(e.note)}</div>` : ''}
+          <div class="meta">${fmtDate(e.ts)}${e.by ? ' · ' + esc(e.by) : ''}</div>
+        </div>
+        <button type="button" class="link danger" data-remove="${esc(e.entryId)}">Remove</button></div>`;
+    }).join('') : '<p class="muted">No points recorded yet.</p>';
+
+    $('#modalBody').innerHTML = `
+      <div class="m-head">
+        <div><h2>${esc(s.first)} ${esc(s.last)}</h2><div class="muted">${esc(state.cls)} · ID ${esc(s.id)}</div></div>
+        <span class="badge ${done ? 'done' : 'prog'}">${done ? '★ Letter earned' : 'In progress'}</span>
+      </div>
+      <div class="bigcats">${cats}</div>
+      <div class="m-actions"><button type="button" class="btn primary" id="awardOne">Award points to ${esc(s.first)}</button></div>
+      <h3>Point history</h3>${list}`;
+    $('#overlay').classList.add('open');
+  }
+  function closeModal() { $('#overlay').classList.remove('open'); state.openId = null; }
+
+  async function removeEntry(entryId) {
+    if (!confirm('Remove this entry? It stays in the Google Sheet, marked "Removed", and no longer counts.')) return;
+    busy(true);
+    try {
+      state.data = await call('removeEntry', { entryId, className: state.cls, enteredBy: state.name });
+      render();
+      if (state.openId) openStudent(state.openId);
+      toast('Entry removed.', 'ok');
+    } catch (e) { if (e.code !== 'AUTH') toast(errMsg(e), 'err'); }
+    finally { busy(false); }
+  }
+
+  /* ---------- Events ---------- */
+  function wireEvents() {
+    $('#loginForm').addEventListener('submit', onLogin);
+    $('#signOut').addEventListener('click', () => signOut());
+    $('#classSel').addEventListener('change', e => loadClass(e.target.value));
+    $('#search').addEventListener('input', e => { state.q = e.target.value.trim(); if (state.data) render(); });
+    $('#filterSel').addEventListener('change', e => { state.filter = e.target.value; if (state.data) render(); });
+    $('#catSel').addEventListener('change', fillActivities);
+    $('#actInput').addEventListener('change', onActivity);
+    $('#awardForm').addEventListener('submit', award);
+
+    $('#roster').addEventListener('change', e => {
+      if (e.target.id === 'selAll') {
+        state.shown.forEach(id => e.target.checked ? state.selected.add(id) : state.selected.delete(id));
+        render();
+      } else if (e.target.classList.contains('pick')) {
+        const id = e.target.dataset.id;
+        e.target.checked ? state.selected.add(id) : state.selected.delete(id);
+        e.target.closest('.row').classList.toggle('sel', e.target.checked);
+        const all = $('#selAll');
+        if (all) all.checked = state.shown.every(x => state.selected.has(x));
+        renderPanel();
+      }
+    });
+    $('#roster').addEventListener('click', e => {
+      const b = e.target.closest('[data-open]');
+      if (b) openStudent(b.dataset.open);
+    });
+    $('#selPills').addEventListener('click', e => {
+      if (e.target.id === 'clearSel') { state.selected.clear(); render(); }
+    });
+
+    $('#closeModal').addEventListener('click', closeModal);
+    $('#overlay').addEventListener('click', e => {
+      if (e.target.id === 'overlay') return closeModal();
+      const rm = e.target.closest('[data-remove]');
+      if (rm) return removeEntry(rm.dataset.remove);
+      if (e.target.id === 'awardOne') {
+        const id = state.openId;
+        state.selected = new Set([id]);
+        closeModal(); render();
+        $('#panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('#actInput').focus({ preventScroll: true });
+      }
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  }
+
+  init();
+</script>
+</body>
+</html>
